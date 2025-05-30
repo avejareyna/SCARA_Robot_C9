@@ -1,0 +1,237 @@
+import tkinter as tk
+from tkinter import ttk
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+L1 = 20
+L2 = 20
+L3 = 20
+start = 0
+accion = 0
+registro_acciones = {}
+
+#----------Funciones del programa----------
+
+def cambiar_modo():
+    if modo.get() == "directa":
+        entry_theta1.config(state='normal')
+        entry_theta2.config(state='normal')
+        entry_theta3.config(state='normal')
+        entry_x.config(state='disabled')
+        entry_y.config(state='disabled')
+        entry_z.config(state='normal')
+        boton_actualizar.config(command=entrada_cinematica_directa)
+    else:
+        entry_theta1.config(state='disabled')
+        entry_theta2.config(state='disabled')
+        entry_theta3.config(state='disabled')
+        entry_x.config(state='normal')
+        entry_y.config(state='normal')
+        entry_z.config(state='normal')
+        boton_actualizar.config(command=entrada_cinematica_inversa)
+
+def entrada_cinematica_directa():
+    global pos_X, pos_Y, pos_Z, start
+    if(start):
+        try:
+            t1 = float(entry_theta1.get())
+            t2 = float(entry_theta2.get())
+            t3 = float(entry_theta3.get())
+            pos_Z = float(entry_z.get())
+        except ValueError:
+            label_resultado.config(text="Entrada inválida")
+            return
+    else:
+        t1 = 0
+        t2 = 0
+        t3 = 0
+        pos_Z = 0
+        start = 1
+
+    puntos = cinematica_directa(t1, t2, t3)
+    x_vals, y_vals = zip(*puntos)
+
+    ax1.clear()
+    ax1.plot(x_vals, y_vals, 'o-', linewidth=4, color="#2683c6")
+    ax1.set_xlim(-70, 70)
+    ax1.set_ylim(-70, 70)
+    ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
+    ax1.set_aspect('equal')
+    canvas1.draw()
+
+    ax2.clear()
+    ax2.set_xlim(0, 4)
+    ax2.set_ylim(0, 80)
+    ax2.set_title("Brazo SCARA - traslacional", fontsize=13, color="#075985")
+    ax2.set_aspect('auto')
+    ax2.add_patch(plt.Rectangle((1.5, 0), 1, 70, edgecolor='#222', facecolor='#e0e7ef'))
+    ax2.add_patch(plt.Rectangle((1.5, pos_Z), 1, 1, edgecolor='#222', facecolor='#2683c6'))
+    ax2.text(2, pos_Z + 1.2, f"{pos_Z:.1f} cm", ha='center', fontsize=12, color='#075985')
+    canvas2.draw()
+
+    label_resultado.config(text=f"Posición X: {x_vals[-1]:.2f} | Y: {y_vals[-1]:.2f} | Z:{pos_Z:.2f}")
+
+def entrada_cinematica_inversa():
+    global pos_X, pos_Y, pos_Z
+    try:
+            pos_X = float(entry_x.get())
+            pos_Y = float(entry_y.get())
+            pos_Z = float(entry_z.get())
+    except ValueError:
+            label_resultado.config(text="Entrada inválida")
+            return
+    
+def cinematica_directa(theta1_deg, theta2_deg, theta3_deg):
+    global pos_X, pos_Y
+    theta1 = np.radians(theta1_deg)
+    theta2 = np.radians(theta2_deg)
+    theta3 = np.radians(theta3_deg)
+
+    x1 = L1 * np.cos(theta1)
+    y1 = L1 * np.sin(theta1)
+    x2 = x1 + L2 * np.cos(theta1 + theta2)
+    y2 = y1 + L2 * np.sin(theta1 + theta2)
+    x3 = x2 + L3 * np.cos(theta1 + theta2 + theta3)
+    y3 = y2 + L3 * np.sin(theta1 + theta2 + theta3)
+    pos_X = x3
+    pos_Y = y3
+    return [(0, 0), (x1, y1), (x2, y2), (x3, y3)]
+
+def guardar_accion():
+    global accion, pos_X, pos_Y, pos_Z
+    accion += 1
+    registro_acciones[accion] = {
+        'numero_accion': accion,
+        'movimientoX': pos_X,
+        'movimientoY': pos_Y,
+        'movimientoZ': pos_Z
+    }
+    actualizar_historial()
+
+def borrar_accion():
+    global accion
+    if registro_acciones:
+        registro_acciones.popitem()
+        accion -= 1
+        if accion < 0:
+            accion = 0
+        actualizar_historial()
+
+def borrar_todo():
+    global accion
+    registro_acciones.clear()
+    accion = 0
+    ax1.clear()
+    ax2.clear()
+    ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
+    ax2.set_title("Brazo SCARA - traslacional (altura)", fontsize=13, color="#075985")
+    canvas1.draw()
+    canvas2.draw()
+    label_resultado.config(text="Posición X: -- | Y: -- | Z: --")
+    actualizar_historial()
+
+def actualizar_historial():
+    listbox_historial.delete(0, tk.END)
+    for numero, datos in registro_acciones.items():
+        texto = f"Acción {numero}: X={datos['movimientoX']:.2f}, Y={datos['movimientoY']:.2f}, Z={datos['movimientoZ']:.2f}"
+        listbox_historial.insert(tk.END, texto)
+
+
+
+# --------- Interfaz gráfica ---------
+ventana = tk.Tk()
+ventana.title("Robot SCARA - Cinemática Directa")
+ventana.configure(bg="#DCDAD5")
+
+bigfont = ("Segoe UI", 13)
+titlefont = ("Segoe UI", 20, "bold")
+
+style = ttk.Style()
+style.theme_use('clam')
+style.configure('TLabel', font=bigfont, background="#DCDAD5")
+style.configure('TButton', font=bigfont, background="#2683c6", foreground="white")
+style.map('TButton', background=[('active', '#176fa2')])
+
+# Título
+label_titulo = ttk.Label(ventana, text="Robot SCARA", font=titlefont, foreground="#075985")
+label_titulo.grid(row=0, column=1, columnspan=1, pady=(12,10))
+
+# FRAME IZQUIERDO
+frame_izq = ttk.Frame(ventana, padding=10, style='TFrame')
+frame_izq.grid(row=1, column=0, sticky="n")
+
+# SELECCIÓN DEL MODO DE INGRESO DE DATOS
+modo = tk.StringVar(value="directa")
+rb_directa = ttk.Radiobutton(frame_izq, text="Cinemática directa", variable=modo, value="directa", command=cambiar_modo)
+rb_inversa = ttk.Radiobutton(frame_izq, text="Cinemática inversa", variable=modo, value="inversa", command=cambiar_modo)
+rb_directa.grid(row=8, column=0)
+rb_inversa.grid(row=8, column=1)
+
+ttk.Label(frame_izq, text="Ángulo θ1 (°):").grid(column=0, row=2, sticky="w", pady=2)
+entry_theta1 = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_theta1.grid(column=1, row=2, pady=2)
+
+ttk.Label(frame_izq, text="Ángulo θ2 (°):").grid(column=0, row=3, sticky="w", pady=2)
+entry_theta2 = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_theta2.grid(column=1, row=3, pady=2)
+
+ttk.Label(frame_izq, text="Ángulo θ3 (°):").grid(column=0, row=4, sticky="w", pady=2)
+entry_theta3 = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_theta3.grid(column=1, row=4, pady=2)
+
+ttk.Label(frame_izq, text="Posición en Z").grid(column=0, row=5, sticky="w", pady=2)
+entry_z = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_z.grid(column=1, row=5, pady=2)
+
+ttk.Label(frame_izq, text="Posición en X").grid(column=0, row=6, sticky="w", pady=2)
+entry_x = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_x.grid(column=1, row=6, pady=2)
+
+ttk.Label(frame_izq, text="Posición en Y").grid(column=0, row=7, sticky="w", pady=2)
+entry_y = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_y.grid(column=1, row=7, pady=2)
+
+boton_actualizar = ttk.Button(frame_izq, text="Calcular y Dibujar", command=entrada_cinematica_directa)
+boton_actualizar.grid(column=0, row=9, columnspan=2, pady=10)
+
+label_resultado = ttk.Label(frame_izq, text="Posición X: -- | Y: -- | Z: --", font=("Segoe UI", 12, "bold"))
+label_resultado.grid(column=0, row=10, columnspan=2, pady=(10, 8))
+
+boton_registro = ttk.Button(frame_izq, text="Registrar acción", command=guardar_accion)
+boton_registro.grid(column=0, row=11, pady=4)
+
+boton_borrar = ttk.Button(frame_izq, text="Borrar última acción", command=borrar_accion)
+boton_borrar.grid(column=1, row=11, pady=4)
+
+boton_borrar_todo = ttk.Button(frame_izq, text="Borrar todo", command=borrar_todo)
+boton_borrar_todo.grid(column=0, row=12, columnspan=2, pady=8)
+
+# FRAME DERECHO: Historial
+frame_der = ttk.Frame(ventana, padding=10, style='TFrame')
+frame_der.grid(row=1, column=2, sticky="n")
+
+# --- Historial (Listbox)
+ttk.Label(frame_der, text="Historial de acciones:").grid(column=3, row=1, columnspan=2, pady=(10,0))
+listbox_historial = tk.Listbox(frame_der, width=38, height=38, font=("Consolas", 11), bg="#ffffff", bd=0, highlightthickness=0, fg="#176fa2")
+listbox_historial.grid(column=3, row=2, columnspan=2, pady=(0,10))
+
+# FRAME MEDIO: Gráficas
+frame_med = ttk.Frame(ventana, padding=10, style='TFrame')
+frame_med.grid(row=1, column=1, sticky="n")
+
+fig1, ax1 = plt.subplots(figsize=(4, 4))
+fig1.patch.set_facecolor('#DCDAD5')
+canvas1 = FigureCanvasTkAgg(fig1, master=frame_med)
+canvas1.get_tk_widget().grid(row=0, column=0, padx=5, pady=5)
+
+fig2, ax2 = plt.subplots(figsize=(4, 4))
+fig2.patch.set_facecolor('#DCDAD5')
+canvas2 = FigureCanvasTkAgg(fig2, master=frame_med)
+canvas2.get_tk_widget().grid(row=1, column=0, padx=5, pady=5)
+
+# Inicializa la interfaz en un estado predeterminado
+actualizar_historial()
+entrada_cinematica_directa()
+
+ventana.mainloop()
