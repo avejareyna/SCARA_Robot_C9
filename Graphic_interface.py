@@ -7,6 +7,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 L1 = 20
 L2 = 20
 L3 = 20
+vel_lento = 30
+vel_media = 60
+vel_rapida = 90
 start = 0
 accion = 0
 registro_acciones = {}
@@ -73,14 +76,83 @@ def entrada_cinematica_directa():
     label_resultado.config(text=f"Posición X: {x_vals[-1]:.2f} | Y: {y_vals[-1]:.2f} | Z:{pos_Z:.2f}")
 
 def entrada_cinematica_inversa():
-    global pos_X, pos_Y, pos_Z
+    global pos_X, pos_Y, pos_Z, start
     try:
-            pos_X = float(entry_x.get())
-            pos_Y = float(entry_y.get())
-            pos_Z = float(entry_z.get())
+        pos_X = float(entry_x.get())
+        pos_Y = float(entry_y.get())
+        pos_Z = float(entry_z.get())
     except ValueError:
-            label_resultado.config(text="Entrada inválida")
-            return
+        label_resultado.config(text="Entrada inválida")
+        return
+
+    phi = np.pi /3  # 60 grados como ejemplo
+
+    soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
+    if not soluciones:
+        label_resultado.config(text="No hay solución posible")
+        return
+
+    # Tomamos la primera solución
+    theta1, theta2, theta3 = soluciones[0]
+    
+    t1_deg = np.degrees(theta1)
+    t2_deg = np.degrees(theta2)
+    t3_deg = np.degrees(theta3)
+
+    entry_theta1.delete(0, tk.END)
+    entry_theta2.delete(0, tk.END)
+    entry_theta3.delete(0, tk.END)
+    entry_theta1.insert(0, f"{t1_deg:.2f}")
+    entry_theta2.insert(0, f"{t2_deg:.2f}")
+    entry_theta3.insert(0, f"{t3_deg:.2f}")
+
+    puntos = cinematica_directa(t1_deg, t2_deg, t3_deg)
+    x_vals, y_vals = zip(*puntos)
+
+    ax1.clear()
+    ax1.plot(x_vals, y_vals, 'o-', linewidth=4, color="#2683c6")
+    ax1.set_xlim(-70, 70)
+    ax1.set_ylim(-70, 70)
+    ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
+    ax1.set_aspect('equal')
+    canvas1.draw()
+
+    ax2.clear()
+    ax2.set_xlim(0, 4)
+    ax2.set_ylim(0, 80)
+    ax2.set_title("Brazo SCARA - traslacional", fontsize=13, color="#075985")
+    ax2.set_aspect('auto')
+    ax2.add_patch(plt.Rectangle((1.5, 0), 1, 70, edgecolor='#222', facecolor='#e0e7ef'))
+    ax2.add_patch(plt.Rectangle((1.5, pos_Z), 1, 1, edgecolor='#222', facecolor='#2683c6'))
+    ax2.text(2, pos_Z + 1.2, f"{pos_Z:.1f} cm", ha='center', fontsize=12, color='#075985')
+    canvas2.draw()
+
+    label_resultado.config(text=f"Ángulos: θ1={t1_deg:.2f}°, θ2={t2_deg:.2f}°, θ3={t3_deg:.2f}°")
+
+def cinematica_inversa(x, y, phi, L1, L2, L3):
+    
+    x_prime = x - L3 * np.cos(phi)
+    y_prime = y - L3 * np.sin(phi)
+    r = np.hypot(x_prime, y_prime)
+
+    #ley de cosenos
+    cos_theta2 = (r**2 - L1**2 - L2**2) / (2 * L1 * L2)
+    if abs(cos_theta2) > 1:
+        return None
+
+    theta2_options = [np.arccos(cos_theta2), -np.arccos(cos_theta2)]  # Codo arriba/abajo
+    soluciones = []
+    for theta2 in theta2_options:
+        alpha = np.arctan2(y_prime, x_prime)
+        beta = np.arccos((L1**2 + r**2 - L2**2) / (2 * L1 * r))
+        # La elección de suma/resta depende del signo de theta2
+        if theta2 >= 0:
+            theta1 = alpha - beta
+        else:
+            theta1 = alpha + beta
+        theta3 = phi - theta1 - theta2
+        soluciones.append((theta1, theta2, theta3))
+    return soluciones
     
 def cinematica_directa(theta1_deg, theta2_deg, theta3_deg):
     global pos_X, pos_Y
@@ -137,7 +209,17 @@ def actualizar_historial():
         texto = f"Acción {numero}: X={datos['movimientoX']:.2f}, Y={datos['movimientoY']:.2f}, Z={datos['movimientoZ']:.2f}"
         listbox_historial.insert(tk.END, texto)
 
+def reproducir_secuencia():
+    if(registro_acciones):
+        print("Reproduciendo secuencia")
 
+    else:
+        print("No hay acciones registradas para reproducir")
+        return
+
+def homing():
+    print("Moviendo a home")
+    #poner algún tipo de espera
 
 # --------- Interfaz gráfica ---------
 ventana = tk.Tk()
@@ -207,6 +289,12 @@ boton_borrar.grid(column=1, row=11, pady=4)
 boton_borrar_todo = ttk.Button(frame_izq, text="Borrar todo", command=borrar_todo)
 boton_borrar_todo.grid(column=0, row=12, columnspan=2, pady=8)
 
+boton_borrar_todo = ttk.Button(frame_izq, text="Reproducir secuencia", command=reproducir_secuencia)
+boton_borrar_todo.grid(column=0, row=15, columnspan=4, pady=8)
+
+boton_borrar_todo = ttk.Button(frame_izq, text="Home", command=homing)
+boton_borrar_todo.grid(column=0, row=17, columnspan=4, pady=8)
+
 # FRAME DERECHO: Historial
 frame_der = ttk.Frame(ventana, padding=10, style='TFrame')
 frame_der.grid(row=1, column=2, sticky="n")
@@ -233,5 +321,6 @@ canvas2.get_tk_widget().grid(row=1, column=0, padx=5, pady=5)
 # Inicializa la interfaz en un estado predeterminado
 actualizar_historial()
 entrada_cinematica_directa()
+cambiar_modo()
 
 ventana.mainloop()
