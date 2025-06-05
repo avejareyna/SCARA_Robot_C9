@@ -2,11 +2,14 @@ import tkinter as tk
 from tkinter import ttk
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Wedge
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 L1 = 20
 L2 = 20
 L3 = 20
+rmin = 20
+rmax = 60
 vel_lento = 30
 vel_media = 60
 vel_rapida = 90
@@ -16,8 +19,8 @@ registro_acciones = {}
 
 #----------Funciones del programa----------
 
-def cambiar_modo():
-    if modo.get() == "directa":
+def cambiar_modo_cinematica():
+    if modo_cinematica.get() == "directa":
         entry_theta1.config(state='normal')
         entry_theta2.config(state='normal')
         entry_theta3.config(state='normal')
@@ -33,6 +36,13 @@ def cambiar_modo():
         entry_y.config(state='normal')
         entry_z.config(state='normal')
         boton_actualizar.config(command=entrada_cinematica_inversa)
+
+def cambiar_modo_electroiman():
+    global estado_electroiman
+    if modo_cinematica.get() == "activado":
+        estado_electroiman = 1
+    else:
+        estado_electroiman = 0
 
 def entrada_cinematica_directa():
     global pos_X, pos_Y, pos_Z, start
@@ -56,11 +66,16 @@ def entrada_cinematica_directa():
     x_vals, y_vals = zip(*puntos)
 
     ax1.clear()
+    semicircle_outer = Wedge(center=(0, 0), r=rmax, theta1=0, theta2=180, color="#a2d7ff", alpha=0.5, zorder=0)
+    semicircle_inner = Wedge(center=(0, 0), r=rmin, theta1=0, theta2=180, color='white', zorder=1)    
+    ax1.add_artist(semicircle_inner)
+    ax1.add_artist(semicircle_outer)
     ax1.plot(x_vals, y_vals, 'o-', linewidth=4, color="#2683c6")
     ax1.set_xlim(-70, 70)
     ax1.set_ylim(-70, 70)
     ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
     ax1.set_aspect('equal')
+    ax1.grid()
     canvas1.draw()
 
     ax2.clear()
@@ -181,6 +196,9 @@ def guardar_accion():
     }
     actualizar_historial()
 
+def activar_electroiman():
+    print("Electroimán activado")
+
 def borrar_accion():
     global accion
     if registro_acciones:
@@ -221,9 +239,16 @@ def homing():
     print("Moviendo a home")
     #poner algún tipo de espera
 
+def pausa():
+    print("Pausa")
+
+def paro_emergencia():
+    print("PARO DE EMERGENCIA ACCIONADO")
 # --------- Interfaz gráfica ---------
 ventana = tk.Tk()
 ventana.title("Robot SCARA - Cinemática Directa")
+ventana.geometry("1150x900")
+ventana.resizable(False, False)
 ventana.configure(bg="#DCDAD5")
 
 bigfont = ("Segoe UI", 13)
@@ -233,7 +258,9 @@ style = ttk.Style()
 style.theme_use('clam')
 style.configure('TLabel', font=bigfont, background="#DCDAD5")
 style.configure('TButton', font=bigfont, background="#2683c6", foreground="white")
+style.configure('EButton.TButton', font=bigfont, background="#c62626", foreground="white")
 style.map('TButton', background=[('active', '#176fa2')])
+style.map('EButton.TButton', background=[('active', "#a11f1f")])
 
 # Título
 label_titulo = ttk.Label(ventana, text="Robot SCARA", font=titlefont, foreground="#075985")
@@ -242,58 +269,78 @@ label_titulo.grid(row=0, column=1, columnspan=1, pady=(12,10))
 # FRAME IZQUIERDO
 frame_izq = ttk.Frame(ventana, padding=10, style='TFrame')
 frame_izq.grid(row=1, column=0, sticky="n")
+frame_izq.grid_rowconfigure(1, minsize=50) #Pequeño espacio al inicio 
+
+ttk.Label(frame_izq, text="Ángulo θ1 (°):").grid(column=0, row=3, sticky="w", pady=2)
+entry_theta1 = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_theta1.grid(column=1, row=3, pady=2)
+
+ttk.Label(frame_izq, text="Ángulo θ2 (°):").grid(column=0, row=4, sticky="w", pady=2)
+entry_theta2 = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_theta2.grid(column=1, row=4, pady=2)
+
+ttk.Label(frame_izq, text="Ángulo θ3 (°):").grid(column=0, row=5, sticky="w", pady=2)
+entry_theta3 = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_theta3.grid(column=1, row=5, pady=2)
+
+ttk.Label(frame_izq, text="Posición en Z").grid(column=0, row=6, sticky="w", pady=2)
+entry_z = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_z.grid(column=1, row=6, pady=2)
+
+ttk.Label(frame_izq, text="Posición en X").grid(column=0, row=7, sticky="w", pady=2)
+entry_x = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_x.grid(column=1, row=7, pady=2)
+
+ttk.Label(frame_izq, text="Posición en Y").grid(column=0, row=8, sticky="w", pady=2)
+entry_y = ttk.Entry(frame_izq, width=12, font=bigfont)
+entry_y.grid(column=1, row=8, pady=2)
 
 # SELECCIÓN DEL MODO DE INGRESO DE DATOS
-modo = tk.StringVar(value="directa")
-rb_directa = ttk.Radiobutton(frame_izq, text="Cinemática directa", variable=modo, value="directa", command=cambiar_modo)
-rb_inversa = ttk.Radiobutton(frame_izq, text="Cinemática inversa", variable=modo, value="inversa", command=cambiar_modo)
-rb_directa.grid(row=8, column=0)
-rb_inversa.grid(row=8, column=1)
-
-ttk.Label(frame_izq, text="Ángulo θ1 (°):").grid(column=0, row=2, sticky="w", pady=2)
-entry_theta1 = ttk.Entry(frame_izq, width=12, font=bigfont)
-entry_theta1.grid(column=1, row=2, pady=2)
-
-ttk.Label(frame_izq, text="Ángulo θ2 (°):").grid(column=0, row=3, sticky="w", pady=2)
-entry_theta2 = ttk.Entry(frame_izq, width=12, font=bigfont)
-entry_theta2.grid(column=1, row=3, pady=2)
-
-ttk.Label(frame_izq, text="Ángulo θ3 (°):").grid(column=0, row=4, sticky="w", pady=2)
-entry_theta3 = ttk.Entry(frame_izq, width=12, font=bigfont)
-entry_theta3.grid(column=1, row=4, pady=2)
-
-ttk.Label(frame_izq, text="Posición en Z").grid(column=0, row=5, sticky="w", pady=2)
-entry_z = ttk.Entry(frame_izq, width=12, font=bigfont)
-entry_z.grid(column=1, row=5, pady=2)
-
-ttk.Label(frame_izq, text="Posición en X").grid(column=0, row=6, sticky="w", pady=2)
-entry_x = ttk.Entry(frame_izq, width=12, font=bigfont)
-entry_x.grid(column=1, row=6, pady=2)
-
-ttk.Label(frame_izq, text="Posición en Y").grid(column=0, row=7, sticky="w", pady=2)
-entry_y = ttk.Entry(frame_izq, width=12, font=bigfont)
-entry_y.grid(column=1, row=7, pady=2)
+modo_cinematica = tk.StringVar(value="directa")
+rb_directa = ttk.Radiobutton(frame_izq, text="Cinemática directa", variable=modo_cinematica, value="directa", command=cambiar_modo_cinematica)
+rb_inversa = ttk.Radiobutton(frame_izq, text="Cinemática inversa", variable=modo_cinematica, value="inversa", command=cambiar_modo_cinematica)
+rb_directa.grid(row=9, column=0)
+rb_inversa.grid(row=9, column=1)
 
 boton_actualizar = ttk.Button(frame_izq, text="Calcular y Dibujar", command=entrada_cinematica_directa)
-boton_actualizar.grid(column=0, row=9, columnspan=2, pady=10)
+boton_actualizar.grid(column=0, row=10, columnspan=2, pady=10)
 
 label_resultado = ttk.Label(frame_izq, text="Posición X: -- | Y: -- | Z: --", font=("Segoe UI", 12, "bold"))
-label_resultado.grid(column=0, row=10, columnspan=2, pady=(10, 8))
+label_resultado.grid(column=0, row=11, columnspan=2, pady=(10, 8))
+
+frame_izq.grid_rowconfigure(12, minsize=20) 
 
 boton_registro = ttk.Button(frame_izq, text="Registrar acción", command=guardar_accion)
-boton_registro.grid(column=0, row=11, pady=4)
+boton_registro.grid(column=0, row=13, pady=8)
 
 boton_borrar = ttk.Button(frame_izq, text="Borrar última acción", command=borrar_accion)
-boton_borrar.grid(column=1, row=11, pady=4)
+boton_borrar.grid(column=1, row=13, columnspan=2, pady=8)
 
 boton_borrar_todo = ttk.Button(frame_izq, text="Borrar todo", command=borrar_todo)
-boton_borrar_todo.grid(column=0, row=12, columnspan=2, pady=8)
+boton_borrar_todo.grid(column=0, row=14, columnspan=2, pady=8)
 
-boton_borrar_todo = ttk.Button(frame_izq, text="Reproducir secuencia", command=reproducir_secuencia)
-boton_borrar_todo.grid(column=0, row=15, columnspan=4, pady=8)
+#ACTIVAR/DESACTIVAR ELECTROIMÁN
+modo_electroiman = tk.StringVar(value="desactivado")
+rb_activado = ttk.Radiobutton(frame_izq, text="Electroimán activado", variable=modo_electroiman, value="activado", command=cambiar_modo_electroiman)
+rb_desactivado = ttk.Radiobutton(frame_izq, text="Electroimán desactivado", variable=modo_electroiman, value="desactivado", command=cambiar_modo_electroiman)
+rb_activado.grid(row=15, column=0)
+rb_desactivado.grid(row=15, column=1)
 
-boton_borrar_todo = ttk.Button(frame_izq, text="Home", command=homing)
-boton_borrar_todo.grid(column=0, row=17, columnspan=4, pady=8)
+frame_izq.grid_rowconfigure(16, minsize=20) 
+
+boton_reproducir = ttk.Button(frame_izq, text="Reproducir secuencia", command=reproducir_secuencia)
+boton_reproducir.grid(column=0, row=17)
+
+boton_pausa = ttk.Button(frame_izq, text="Pausa", command=pausa)
+boton_pausa.grid(column=1, row=17)
+
+boton_home = ttk.Button(frame_izq, text="Home", command=homing)
+boton_home.grid(column=0, row=18, columnspan=2, pady=8)
+
+frame_izq.grid_rowconfigure(19, minsize=100) 
+
+boton_paro = ttk.Button(frame_izq, text="PARO", style='EButton.TButton',command=paro_emergencia)
+boton_paro.grid(column=0, row=20, pady=8)
 
 # FRAME DERECHO: Historial
 frame_der = ttk.Frame(ventana, padding=10, style='TFrame')
@@ -321,6 +368,6 @@ canvas2.get_tk_widget().grid(row=1, column=0, padx=5, pady=5)
 # Inicializa la interfaz en un estado predeterminado
 actualizar_historial()
 entrada_cinematica_directa()
-cambiar_modo()
+cambiar_modo_cinematica()
 
 ventana.mainloop()
