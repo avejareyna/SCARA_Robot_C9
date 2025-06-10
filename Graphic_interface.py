@@ -18,7 +18,6 @@ accion = 0
 registro_acciones = {}
 
 #----------Funciones del programa----------
-
 def cambiar_modo_cinematica():
     if modo_cinematica.get() == "directa":
         entry_theta1.config(state='normal')
@@ -39,13 +38,13 @@ def cambiar_modo_cinematica():
 
 def cambiar_modo_electroiman():
     global estado_electroiman
-    if modo_cinematica.get() == "activado":
-        estado_electroiman = 1
+    if modo_electroiman.get() == "activado":
+        estado_electroiman = 1       
     else:
         estado_electroiman = 0
 
 def entrada_cinematica_directa():
-    global pos_X, pos_Y, pos_Z, start
+    global pos_X, pos_Y, pos_Z, start, t1, t2, t3
     if(start):
         try:
             t1 = float(entry_theta1.get())
@@ -62,12 +61,24 @@ def entrada_cinematica_directa():
         pos_Z = 0
         start = 1
 
+    if((t1 < -90) or (t2 < -90) or (t3 < -90) or (t1 > 90) or (t3 > 90) or (t3 > 90) or (pos_Z < 0) or (pos_Z > 60)):
+        label_resultado.config(text="Entrada inválida") 
+        return
+
     puntos = cinematica_directa(t1, t2, t3)
     x_vals, y_vals = zip(*puntos)
 
+    if(x_vals[-1] < 0):
+        label_resultado.config(text="Entrada inválida")
+        return
+
+    if((x_vals[-1]**2 + y_vals[-1]**2) < 400):
+        label_resultado.config(text="Entrada inválida")
+        return
+
     ax1.clear()
-    semicircle_outer = Wedge(center=(0, 0), r=rmax, theta1=0, theta2=180, color="#a2d7ff", alpha=0.5, zorder=0)
-    semicircle_inner = Wedge(center=(0, 0), r=rmin, theta1=0, theta2=180, color='white', zorder=1)    
+    semicircle_outer = Wedge(center=(0, 0), r=rmax, theta1=-90, theta2=90, color="#a2d7ff", alpha=0.5, zorder=0)
+    semicircle_inner = Wedge(center=(0, 0), r=rmin, theta1=-90, theta2=90, color='white', zorder=1)    
     ax1.add_artist(semicircle_inner)
     ax1.add_artist(semicircle_outer)
     ax1.plot(x_vals, y_vals, 'o-', linewidth=4, color="#2683c6")
@@ -87,7 +98,7 @@ def entrada_cinematica_directa():
     ax2.add_patch(plt.Rectangle((1.5, pos_Z), 1, 1, edgecolor='#222', facecolor='#2683c6'))
     ax2.text(2, pos_Z + 1.2, f"{pos_Z:.1f} cm", ha='center', fontsize=12, color='#075985')
     canvas2.draw()
-
+        
     label_resultado.config(text=f"Posición X: {x_vals[-1]:.2f} | Y: {y_vals[-1]:.2f} | Z:{pos_Z:.2f}")
 
 def entrada_cinematica_inversa():
@@ -100,19 +111,149 @@ def entrada_cinematica_inversa():
         label_resultado.config(text="Entrada inválida")
         return
 
-    phi = np.pi /3  # 60 grados como ejemplo
+    if(pos_X < 0 or pos_X > 60):
+        label_resultado.config(text="Entrada inválida")
+        return    
+
+    if((pos_X**2 + pos_Y**2) <= 3600 and (pos_X**2 + pos_Y**2) >= 3025):
+        phi = np.arctan2(pos_Y,pos_X)
+        phi2 = phi
+        print(f"phi = {np.degrees(phi)}")
+    elif((pos_X**2 + pos_Y**2) < 3025 and (pos_X**2 + pos_Y**2) >= 2500):
+        phi = np.arctan2(pos_Y,pos_X) - 2*(np.pi/15)
+        phi2 = np.arctan2(pos_Y,pos_X) + 2*(np.pi/15)
+        print(f"phi = {np.degrees(phi)}")
+    elif((pos_X**2 + pos_Y**2) < 2500 and (pos_X**2 + pos_Y**2) >= 2025):
+        phi = np.arctan2(pos_Y,pos_X) - 3*(np.pi/15)
+        phi2 = np.arctan2(pos_Y,pos_X) + 3*(np.pi/15)
+        print(f"phi = {np.degrees(phi)}")
+    elif((pos_X**2 + pos_Y**2) < 2025 and (pos_X**2 + pos_Y**2) >= 1600):
+        phi = np.arctan2(pos_Y,pos_X) - 4*(np.pi/15)
+        phi2 = np.arctan2(pos_Y,pos_X) + 4*(np.pi/15)
+        print(f"phi = {np.degrees(phi)}")
+    elif((pos_X**2 + pos_Y**2) < 1600 and (pos_X**2 + pos_Y**2) >= 1225):
+        phi = np.arctan2(pos_Y,pos_X) - 5*(np.pi/15)
+        phi2 = np.arctan2(pos_Y,pos_X) + 5*(np.pi/15)
+        print(f"phi = {np.degrees(phi)}")
+    elif((pos_X**2 + pos_Y**2) < 1225 and (pos_X**2 + pos_Y**2) >= 900):
+        phi = np.arctan2(pos_Y,pos_X) - 6*(np.pi/15)
+        phi2 = np.arctan2(pos_Y,pos_X) + 6*(np.pi/15)
+        print(f"phi = {np.degrees(phi)}")
+    elif((pos_X**2 + pos_Y**2) < 900 and (pos_X**2 + pos_Y**2) >= 625):
+        phi = np.arctan2(pos_Y,pos_X) - 7*(np.pi/15)
+        phi2 = np.arctan2(pos_Y,pos_X) + 7*(np.pi/15)
+        print(f"phi = {np.degrees(phi)}")
+    elif((pos_X**2 + pos_Y**2) < 625 and (pos_X**2 + pos_Y**2) >= 400):
+        phi = np.arctan2(pos_Y,pos_X) - np.pi/2
+        phi2 = np.arctan2(pos_Y,pos_X) + np.pi/2
+        print(f"phi = {np.degrees(phi)}")
+    else:
+        label_resultado.config(text="Entrada inválida")
+        return
+
+    #phi = np.pi /3  #orientación del último eslabón con respecto a la horizontal
 
     soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
     if not soluciones:
         label_resultado.config(text="No hay solución posible")
         return
-
     # Tomamos la primera solución
     theta1, theta2, theta3 = soluciones[0]
-    
+
     t1_deg = np.degrees(theta1)
     t2_deg = np.degrees(theta2)
     t3_deg = np.degrees(theta3)
+
+    print(f"Valores de la primera solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+
+    if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+        theta1, theta2, theta3 = soluciones[1]
+        t1_deg = np.degrees(theta1)
+        t2_deg = np.degrees(theta2)
+        t3_deg = np.degrees(theta3)
+
+        print(f"Valores de la segunda solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+
+        if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+            print("Cambiando el signo de phi")
+            phi = -phi
+            print(f"phi = {np.degrees(phi)}")
+
+            soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
+            if not soluciones:
+                label_resultado.config(text="No hay solución posible")
+                return
+            theta1, theta2, theta3 = soluciones[0]
+
+            t1_deg = np.degrees(theta1)
+            t2_deg = np.degrees(theta2)
+            t3_deg = np.degrees(theta3)
+
+            print(f"Valores de la tercera solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+
+            if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+                theta1, theta2, theta3 = soluciones[1]
+                t1_deg = np.degrees(theta1)
+                t2_deg = np.degrees(theta2)
+                t3_deg = np.degrees(theta3)
+
+                print(f"Valores de la cuarta solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+
+                if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+                    phi = phi2
+                    print("Cambiando la orientacion de phi")
+                    print(f"phi = {np.degrees(phi)}")
+                    soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
+                    if not soluciones:
+                        label_resultado.config(text="No hay solución posible")
+                        return
+                    
+                    theta1, theta2, theta3 = soluciones[0]
+
+                    t1_deg = np.degrees(theta1)
+                    t2_deg = np.degrees(theta2)
+                    t3_deg = np.degrees(theta3)
+
+                    print(f"Valores de la quinta solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+
+                    if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+                        theta1, theta2, theta3 = soluciones[1]
+                        t1_deg = np.degrees(theta1)
+                        t2_deg = np.degrees(theta2)
+                        t3_deg = np.degrees(theta3)
+
+                        print(f"Valores de la sexta solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+
+                        if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+                            print("Cambiando el signo de phi")
+                            phi = -phi
+                            print(f"phi = {np.degrees(phi)}")
+
+                            soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
+                            if not soluciones:
+                                label_resultado.config(text="No hay solución posible")
+                                return
+                            theta1, theta2, theta3 = soluciones[0]
+
+                            t1_deg = np.degrees(theta1)
+                            t2_deg = np.degrees(theta2)
+                            t3_deg = np.degrees(theta3)
+
+                            print(f"Valores de la septima solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+
+                            if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+                                theta1, theta2, theta3 = soluciones[1]
+                                t1_deg = np.degrees(theta1)
+                                t2_deg = np.degrees(theta2)
+                                t3_deg = np.degrees(theta3)
+
+                                print(f"Valores de la octava solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+                                if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+                                    label_resultado.config(text="No hay solución posible")
+                                    return
+
+    # Tomamos la primera solución
+    theta1, theta2, theta3 = soluciones[0]
 
     entry_theta1.delete(0, tk.END)
     entry_theta2.delete(0, tk.END)
@@ -125,11 +266,16 @@ def entrada_cinematica_inversa():
     x_vals, y_vals = zip(*puntos)
 
     ax1.clear()
+    semicircle_outer = Wedge(center=(0, 0), r=rmax, theta1=-90, theta2=90, color="#a2d7ff", alpha=0.5, zorder=0)
+    semicircle_inner = Wedge(center=(0, 0), r=rmin, theta1=-90, theta2=90, color='white', zorder=1)
+    ax1.add_artist(semicircle_inner)
+    ax1.add_artist(semicircle_outer)    
     ax1.plot(x_vals, y_vals, 'o-', linewidth=4, color="#2683c6")
     ax1.set_xlim(-70, 70)
     ax1.set_ylim(-70, 70)
     ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
     ax1.set_aspect('equal')
+    ax1.grid()
     canvas1.draw()
 
     ax2.clear()
@@ -192,12 +338,10 @@ def guardar_accion():
         'numero_accion': accion,
         'movimientoX': pos_X,
         'movimientoY': pos_Y,
-        'movimientoZ': pos_Z
+        'movimientoZ': pos_Z,
+        'electroiman': estado_electroiman
     }
     actualizar_historial()
-
-def activar_electroiman():
-    print("Electroimán activado")
 
 def borrar_accion():
     global accion
@@ -212,19 +356,13 @@ def borrar_todo():
     global accion
     registro_acciones.clear()
     accion = 0
-    ax1.clear()
-    ax2.clear()
-    ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
-    ax2.set_title("Brazo SCARA - traslacional (altura)", fontsize=13, color="#075985")
-    canvas1.draw()
-    canvas2.draw()
     label_resultado.config(text="Posición X: -- | Y: -- | Z: --")
     actualizar_historial()
 
 def actualizar_historial():
     listbox_historial.delete(0, tk.END)
     for numero, datos in registro_acciones.items():
-        texto = f"Acción {numero}: X={datos['movimientoX']:.2f}, Y={datos['movimientoY']:.2f}, Z={datos['movimientoZ']:.2f}"
+        texto = f"Acción {numero}: X={datos['movimientoX']:.2f},Y={datos['movimientoY']:.2f}, Z={datos['movimientoZ']:.2f}, Electroiman = {datos['electroiman']}"
         listbox_historial.insert(tk.END, texto)
 
 def reproducir_secuencia():
@@ -244,10 +382,10 @@ def pausa():
 
 def paro_emergencia():
     print("PARO DE EMERGENCIA ACCIONADO")
+
 # --------- Interfaz gráfica ---------
 ventana = tk.Tk()
 ventana.title("Robot SCARA - Cinemática Directa")
-ventana.geometry("1150x900")
 ventana.resizable(False, False)
 ventana.configure(bg="#DCDAD5")
 
@@ -348,7 +486,7 @@ frame_der.grid(row=1, column=2, sticky="n")
 
 # --- Historial (Listbox)
 ttk.Label(frame_der, text="Historial de acciones:").grid(column=3, row=1, columnspan=2, pady=(10,0))
-listbox_historial = tk.Listbox(frame_der, width=38, height=38, font=("Consolas", 11), bg="#ffffff", bd=0, highlightthickness=0, fg="#176fa2")
+listbox_historial = tk.Listbox(frame_der, width=54, height=38, font=("Consolas", 11), bg="#ffffff", bd=0, highlightthickness=0, fg="#176fa2")
 listbox_historial.grid(column=3, row=2, columnspan=2, pady=(0,10))
 
 # FRAME MEDIO: Gráficas
@@ -369,5 +507,6 @@ canvas2.get_tk_widget().grid(row=1, column=0, padx=5, pady=5)
 actualizar_historial()
 entrada_cinematica_directa()
 cambiar_modo_cinematica()
+cambiar_modo_electroiman()
 
 ventana.mainloop()
