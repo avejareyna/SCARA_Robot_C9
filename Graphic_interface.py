@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Wedge
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import math
 
 L1 = 20
 L2 = 20
@@ -15,6 +16,7 @@ vel_media = 60
 vel_rapida = 90
 start = 0
 accion = 0
+threshold = 90*1.001 #90 grados mas una tolerancia
 registro_acciones = {}
 
 #----------Funciones del programa----------
@@ -113,72 +115,20 @@ def entrada_cinematica_inversa():
 
     if(pos_X < 0 or pos_X > 60):
         label_resultado.config(text="Entrada inválida")
-        return    
-
-    if((pos_X**2 + pos_Y**2) <= 3600 and (pos_X**2 + pos_Y**2) >= 3025):
-        phi = np.arctan2(pos_Y,pos_X)
-        phi2 = phi
-        print(f"phi = {np.degrees(phi)}")
-    elif((pos_X**2 + pos_Y**2) < 3025 and (pos_X**2 + pos_Y**2) >= 2500):
-        phi = np.arctan2(pos_Y,pos_X) - 2*(np.pi/15)
-        phi2 = np.arctan2(pos_Y,pos_X) + 2*(np.pi/15)
-        print(f"phi = {np.degrees(phi)}")
-    elif((pos_X**2 + pos_Y**2) < 2500 and (pos_X**2 + pos_Y**2) >= 2025):
-        phi = np.arctan2(pos_Y,pos_X) - 3*(np.pi/15)
-        phi2 = np.arctan2(pos_Y,pos_X) + 3*(np.pi/15)
-        print(f"phi = {np.degrees(phi)}")
-    elif((pos_X**2 + pos_Y**2) < 2025 and (pos_X**2 + pos_Y**2) >= 1600):
-        phi = np.arctan2(pos_Y,pos_X) - 4*(np.pi/15)
-        phi2 = np.arctan2(pos_Y,pos_X) + 4*(np.pi/15)
-        print(f"phi = {np.degrees(phi)}")
-    elif((pos_X**2 + pos_Y**2) < 1600 and (pos_X**2 + pos_Y**2) >= 1225):
-        phi = np.arctan2(pos_Y,pos_X) - 5*(np.pi/15)
-        phi2 = np.arctan2(pos_Y,pos_X) + 5*(np.pi/15)
-        print(f"phi = {np.degrees(phi)}")
-    elif((pos_X**2 + pos_Y**2) < 1225 and (pos_X**2 + pos_Y**2) >= 900):
-        phi = np.arctan2(pos_Y,pos_X) - 6*(np.pi/15)
-        phi2 = np.arctan2(pos_Y,pos_X) + 6*(np.pi/15)
-        print(f"phi = {np.degrees(phi)}")
-    elif((pos_X**2 + pos_Y**2) < 900 and (pos_X**2 + pos_Y**2) >= 625):
-        phi = np.arctan2(pos_Y,pos_X) - 7*(np.pi/15)
-        phi2 = np.arctan2(pos_Y,pos_X) + 7*(np.pi/15)
-        print(f"phi = {np.degrees(phi)}")
-    elif((pos_X**2 + pos_Y**2) < 625 and (pos_X**2 + pos_Y**2) >= 400):
-        phi = np.arctan2(pos_Y,pos_X) - np.pi/2
-        phi2 = np.arctan2(pos_Y,pos_X) + np.pi/2
-        print(f"phi = {np.degrees(phi)}")
-    else:
-        label_resultado.config(text="Entrada inválida")
         return
+    if((pos_X**2 + pos_Y**2) < 400):
+        label_resultado.config(text="Entrada inválida")
+        return    
 
     #phi = np.pi /3  #orientación del último eslabón con respecto a la horizontal
 
-    soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
-    if not soluciones:
-        label_resultado.config(text="No hay solución posible")
-        return
-    # Tomamos la primera solución
-    theta1, theta2, theta3 = soluciones[0]
-
-    t1_deg = np.degrees(theta1)
-    t2_deg = np.degrees(theta2)
-    t3_deg = np.degrees(theta3)
-
-    print(f"Valores de la primera solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
-
-    if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
-        theta1, theta2, theta3 = soluciones[1]
-        t1_deg = np.degrees(theta1)
-        t2_deg = np.degrees(theta2)
-        t3_deg = np.degrees(theta3)
-
-        print(f"Valores de la segunda solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
-
-        if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
-            print("Cambiando el signo de phi")
-            phi = -phi
-            print(f"phi = {np.degrees(phi)}")
-
+    #selección de una solución para diversos phi. se toma el primer phi que funcione
+    flag = False
+    for i in range(0,18001):
+        for signo in [-1,1]:
+            phi = np.arctan2(pos_Y,pos_X)+np.deg2rad(i*signo*0.01)
+            
+            #print(phi)
             soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
             if not soluciones:
                 label_resultado.config(text="No hay solución posible")
@@ -189,72 +139,29 @@ def entrada_cinematica_inversa():
             t2_deg = np.degrees(theta2)
             t3_deg = np.degrees(theta3)
 
-            print(f"Valores de la tercera solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
-
-            if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
+            if(not(t1_deg > threshold or t2_deg > threshold or t3_deg > threshold or t1_deg < -threshold or t2_deg < -threshold or t3_deg < -threshold)):
+                flag = True
+                print("Bandera1")
+                break
+            else:
                 theta1, theta2, theta3 = soluciones[1]
                 t1_deg = np.degrees(theta1)
                 t2_deg = np.degrees(theta2)
                 t3_deg = np.degrees(theta3)
 
-                print(f"Valores de la cuarta solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
+                if(not(t1_deg > threshold or t2_deg > threshold or t3_deg > threshold or t1_deg < -threshold or t2_deg < -threshold or t3_deg < -threshold)):
+                    flag = True
+                    print("Bandera2")
+                    break
+                elif(i == 18000):
+                    print("No hay solución")
+                    label_resultado.config(text="No hay solución posible")
+                    return
+        if(flag):
+            print(f"phi es {phi}")
+            break
 
-                if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
-                    phi = phi2
-                    print("Cambiando la orientacion de phi")
-                    print(f"phi = {np.degrees(phi)}")
-                    soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
-                    if not soluciones:
-                        label_resultado.config(text="No hay solución posible")
-                        return
-                    
-                    theta1, theta2, theta3 = soluciones[0]
-
-                    t1_deg = np.degrees(theta1)
-                    t2_deg = np.degrees(theta2)
-                    t3_deg = np.degrees(theta3)
-
-                    print(f"Valores de la quinta solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
-
-                    if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
-                        theta1, theta2, theta3 = soluciones[1]
-                        t1_deg = np.degrees(theta1)
-                        t2_deg = np.degrees(theta2)
-                        t3_deg = np.degrees(theta3)
-
-                        print(f"Valores de la sexta solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
-
-                        if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
-                            print("Cambiando el signo de phi")
-                            phi = -phi
-                            print(f"phi = {np.degrees(phi)}")
-
-                            soluciones = cinematica_inversa(pos_X, pos_Y, phi, L1, L2, L3)
-                            if not soluciones:
-                                label_resultado.config(text="No hay solución posible")
-                                return
-                            theta1, theta2, theta3 = soluciones[0]
-
-                            t1_deg = np.degrees(theta1)
-                            t2_deg = np.degrees(theta2)
-                            t3_deg = np.degrees(theta3)
-
-                            print(f"Valores de la septima solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
-
-                            if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
-                                theta1, theta2, theta3 = soluciones[1]
-                                t1_deg = np.degrees(theta1)
-                                t2_deg = np.degrees(theta2)
-                                t3_deg = np.degrees(theta3)
-
-                                print(f"Valores de la octava solución: theta1:{t1_deg},theta2:{t2_deg},theta3:{t3_deg}")
-                                if(t1_deg > 90 or t2_deg > 90 or t3_deg > 90 or t1_deg < -90 or t2_deg < -90 or t3_deg < -90 ):
-                                    label_resultado.config(text="No hay solución posible")
-                                    return
-
-    # Tomamos la primera solución
-    theta1, theta2, theta3 = soluciones[0]
-
+                
     entry_theta1.delete(0, tk.END)
     entry_theta2.delete(0, tk.END)
     entry_theta3.delete(0, tk.END)
