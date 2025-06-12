@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Wedge
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import math
 
 L1 = 20
 L2 = 20
@@ -46,28 +45,28 @@ def cambiar_modo_electroiman():
         estado_electroiman = 0
 
 def entrada_cinematica_directa():
-    global pos_X, pos_Y, pos_Z, start, t1, t2, t3
+    global pos_X, pos_Y, pos_Z, start, t1_deg, t2_deg, t3_deg
     if(start):
         try:
-            t1 = float(entry_theta1.get())
-            t2 = float(entry_theta2.get())
-            t3 = float(entry_theta3.get())
+            t1_deg = float(entry_theta1.get())
+            t2_deg = float(entry_theta2.get())
+            t3_deg = float(entry_theta3.get())
             pos_Z = float(entry_z.get())
         except ValueError:
             label_resultado.config(text="Entrada inválida")
             return
     else:
-        t1 = 0
-        t2 = 0
-        t3 = 0
+        t1_deg = 0
+        t2_deg = 0
+        t3_deg = 0
         pos_Z = 0
         start = 1
 
-    if((t1 < -90) or (t2 < -90) or (t3 < -90) or (t1 > 90) or (t3 > 90) or (t3 > 90) or (pos_Z < 0) or (pos_Z > 60)):
+    if((t1_deg < -90) or (t2_deg < -90) or (t3_deg < -90) or (t1_deg > 90) or (t3_deg > 90) or (t3_deg > 90) or (pos_Z < 0) or (pos_Z > 60)):
         label_resultado.config(text="Entrada inválida") 
         return
 
-    puntos = cinematica_directa(t1, t2, t3)
+    puntos = cinematica_directa(t1_deg, t2_deg, t3_deg)
     x_vals, y_vals = zip(*puntos)
 
     if(x_vals[-1] < 0):
@@ -104,7 +103,7 @@ def entrada_cinematica_directa():
     label_resultado.config(text=f"Posición X: {x_vals[-1]:.2f} | Y: {y_vals[-1]:.2f} | Z:{pos_Z:.2f}")
 
 def entrada_cinematica_inversa():
-    global pos_X, pos_Y, pos_Z, start
+    global pos_X, pos_Y, pos_Z, start, t1_deg, t2_deg, t3_deg
     try:
         pos_X = float(entry_x.get())
         pos_Y = float(entry_y.get())
@@ -121,7 +120,6 @@ def entrada_cinematica_inversa():
         return    
 
     #phi = np.pi /3  #orientación del último eslabón con respecto a la horizontal
-
     #selección de una solución para diversos phi. se toma el primer phi que funcione
     flag = False
     for i in range(0,18001):
@@ -141,7 +139,6 @@ def entrada_cinematica_inversa():
 
             if(not(t1_deg > threshold or t2_deg > threshold or t3_deg > threshold or t1_deg < -threshold or t2_deg < -threshold or t3_deg < -threshold)):
                 flag = True
-                print("Bandera1")
                 break
             else:
                 theta1, theta2, theta3 = soluciones[1]
@@ -151,17 +148,13 @@ def entrada_cinematica_inversa():
 
                 if(not(t1_deg > threshold or t2_deg > threshold or t3_deg > threshold or t1_deg < -threshold or t2_deg < -threshold or t3_deg < -threshold)):
                     flag = True
-                    print("Bandera2")
                     break
                 elif(i == 18000):
-                    print("No hay solución")
                     label_resultado.config(text="No hay solución posible")
                     return
         if(flag):
-            print(f"phi es {phi}")
             break
 
-                
     entry_theta1.delete(0, tk.END)
     entry_theta2.delete(0, tk.END)
     entry_theta3.delete(0, tk.END)
@@ -239,14 +232,16 @@ def cinematica_directa(theta1_deg, theta2_deg, theta3_deg):
     return [(0, 0), (x1, y1), (x2, y2), (x3, y3)]
 
 def guardar_accion():
-    global accion, pos_X, pos_Y, pos_Z
+    global accion
     accion += 1
     registro_acciones[accion] = {
-        'numero_accion': accion,
         'movimientoX': pos_X,
         'movimientoY': pos_Y,
         'movimientoZ': pos_Z,
-        'electroiman': estado_electroiman
+        'electroiman': estado_electroiman,
+        'theta1': t1_deg,
+        'theta2': t2_deg,
+        'theta3': t3_deg
     }
     actualizar_historial()
 
@@ -273,8 +268,13 @@ def actualizar_historial():
         listbox_historial.insert(tk.END, texto)
 
 def reproducir_secuencia():
+    global posicion
     if(registro_acciones):
         print("Reproduciendo secuencia")
+        for numero, datos in registro_acciones.items():
+            th1_mov = datos['theta1']
+            th2_mov = datos['theta2']
+            th3_mov = datos['theta3']
 
     else:
         print("No hay acciones registradas para reproducir")
@@ -289,6 +289,12 @@ def pausa():
 
 def paro_emergencia():
     print("PARO DE EMERGENCIA ACCIONADO")
+
+def posiciones_actuales():
+    print(":")
+
+def velocidad(th1_act, th2_act, th3_act):
+    print("xd")
 
 # --------- Interfaz gráfica ---------
 ventana = tk.Tk()
