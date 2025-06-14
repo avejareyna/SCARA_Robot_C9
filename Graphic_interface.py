@@ -5,20 +5,45 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Wedge
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+#Distance between centers of each link
 L1 = 20
 L2 = 20
 L3 = 20
+#Radiuses for the semicircles
 rmin = 20
 rmax = 60
-vel_lento = 30
-vel_media = 60
-vel_rapida = 90
-start = 0
-accion = 0
-threshold = 90*1.001 #90 grados mas una tolerancia
-registro_acciones = {}
 
-#----------Funciones del programa----------
+start = 0 #Flag to initialize the UI in a certain state
+
+#Number of steps to take per each motor
+steps_th1 = 0
+steps_th2 = 0
+steps_th3 = 0
+steps_Z = 0
+
+steps_rev = 25600 #Resolution. Number of steps required to rotate 360 degrees
+degrees_step = 360/steps_rev #Degrees per step. Required to calculate the number of steps to take given a certain number of degrees
+threshold = 90*1.001 #90 degrees with a certain tolerance 
+#Microseconds between steps for the motores
+vel_lento = 30 
+vel_media = 60 
+vel_rapida = 90 
+
+#Flags for the limit switch for each link 
+ls_th1_1 = 1
+ls_th1_2 = 1
+ls_th2_1 = 1
+ls_th2_2 = 1
+ls_th3_1 = 1
+ls_th3_2 = 1
+ls_Z_1 = 1
+ls_Z_2 = 1
+
+registro_acciones = {} #Dictionary to save the data per action
+accion = 0 #Counter for number of actions saved in the register
+
+
+#----------------------------------- Functions of the program -----------------------------------
 def cambiar_modo_cinematica():
     if modo_cinematica.get() == "directa":
         entry_theta1.config(state='normal')
@@ -43,6 +68,47 @@ def cambiar_modo_electroiman():
         estado_electroiman = 1       
     else:
         estado_electroiman = 0
+
+def cinematica_directa(theta1_deg, theta2_deg, theta3_deg):
+    global pos_X, pos_Y
+    theta1 = np.radians(theta1_deg)
+    theta2 = np.radians(theta2_deg)
+    theta3 = np.radians(theta3_deg)
+
+    x1 = L1 * np.cos(theta1)
+    y1 = L1 * np.sin(theta1)
+    x2 = x1 + L2 * np.cos(theta1 + theta2)
+    y2 = y1 + L2 * np.sin(theta1 + theta2)
+    x3 = x2 + L3 * np.cos(theta1 + theta2 + theta3)
+    y3 = y2 + L3 * np.sin(theta1 + theta2 + theta3)
+    pos_X = x3
+    pos_Y = y3
+    return [(0, 0), (x1, y1), (x2, y2), (x3, y3)]
+
+def cinematica_inversa(x, y, phi, L1, L2, L3):
+    
+    x_prime = x - L3 * np.cos(phi)
+    y_prime = y - L3 * np.sin(phi)
+    r = np.hypot(x_prime, y_prime)
+
+    #ley de cosenos
+    cos_theta2 = (r**2 - L1**2 - L2**2) / (2 * L1 * L2)
+    if abs(cos_theta2) > 1:
+        return None
+
+    theta2_options = [np.arccos(cos_theta2), -np.arccos(cos_theta2)]  # Codo arriba/abajo
+    soluciones = []
+    for theta2 in theta2_options:
+        alpha = np.arctan2(y_prime, x_prime)
+        beta = np.arccos((L1**2 + r**2 - L2**2) / (2 * L1 * r))
+        # La elección de suma/resta depende del signo de theta2
+        if theta2 >= 0:
+            theta1 = alpha - beta
+        else:
+            theta1 = alpha + beta
+        theta3 = phi - theta1 - theta2
+        soluciones.append((theta1, theta2, theta3))
+    return soluciones
 
 def entrada_cinematica_directa():
     global pos_X, pos_Y, pos_Z, start, t1_deg, t2_deg, t3_deg
@@ -190,47 +256,6 @@ def entrada_cinematica_inversa():
 
     label_resultado.config(text=f"Ángulos: θ1={t1_deg:.2f}°, θ2={t2_deg:.2f}°, θ3={t3_deg:.2f}°")
 
-def cinematica_inversa(x, y, phi, L1, L2, L3):
-    
-    x_prime = x - L3 * np.cos(phi)
-    y_prime = y - L3 * np.sin(phi)
-    r = np.hypot(x_prime, y_prime)
-
-    #ley de cosenos
-    cos_theta2 = (r**2 - L1**2 - L2**2) / (2 * L1 * L2)
-    if abs(cos_theta2) > 1:
-        return None
-
-    theta2_options = [np.arccos(cos_theta2), -np.arccos(cos_theta2)]  # Codo arriba/abajo
-    soluciones = []
-    for theta2 in theta2_options:
-        alpha = np.arctan2(y_prime, x_prime)
-        beta = np.arccos((L1**2 + r**2 - L2**2) / (2 * L1 * r))
-        # La elección de suma/resta depende del signo de theta2
-        if theta2 >= 0:
-            theta1 = alpha - beta
-        else:
-            theta1 = alpha + beta
-        theta3 = phi - theta1 - theta2
-        soluciones.append((theta1, theta2, theta3))
-    return soluciones
-    
-def cinematica_directa(theta1_deg, theta2_deg, theta3_deg):
-    global pos_X, pos_Y
-    theta1 = np.radians(theta1_deg)
-    theta2 = np.radians(theta2_deg)
-    theta3 = np.radians(theta3_deg)
-
-    x1 = L1 * np.cos(theta1)
-    y1 = L1 * np.sin(theta1)
-    x2 = x1 + L2 * np.cos(theta1 + theta2)
-    y2 = y1 + L2 * np.sin(theta1 + theta2)
-    x3 = x2 + L3 * np.cos(theta1 + theta2 + theta3)
-    y3 = y2 + L3 * np.sin(theta1 + theta2 + theta3)
-    pos_X = x3
-    pos_Y = y3
-    return [(0, 0), (x1, y1), (x2, y2), (x3, y3)]
-
 def guardar_accion():
     global accion
     accion += 1
@@ -268,21 +293,59 @@ def actualizar_historial():
         listbox_historial.insert(tk.END, texto)
 
 def reproducir_secuencia():
-    global posicion
+    global posicion, th1_mov, th2_mov, th3_mov
     if(registro_acciones):
         print("Reproduciendo secuencia")
         for numero, datos in registro_acciones.items():
             th1_mov = datos['theta1']
             th2_mov = datos['theta2']
             th3_mov = datos['theta3']
-
+            z_mov = datos['movimientoZ']
     else:
         print("No hay acciones registradas para reproducir")
         return
 
 def homing():
+    global pos_steps_th1,pos_steps_th2,pos_steps_th3,pos_steps_Z
     print("Moviendo a home")
-    #poner algún tipo de espera
+    flag_home = 1
+    flag_th1 = 0
+    flag_th2 = 0
+    flag_th3 = 0
+    flag_Z = 0
+    while(flag_home):
+        if(not ls_th1_2):
+            girar_th1_ccw(vel_lento,1)
+        else:
+            flag_th1 = 1
+            pos_steps_th1 = -steps_rev/4 #Current position of th1
+            steps_th1 = -pos_steps_th1
+        if(not ls_th2_2):
+            girar_th2_ccw(vel_lento,1)
+        else:
+            flag_th2 = 1
+            pos_steps_th2 = -steps_rev/4 #Current position of th2
+            steps_th2 = -pos_steps_th2
+        if(not ls_th3_2):
+            girar_th3_ccw(vel_lento,1)
+        else:
+            flag_th3 = 1
+            pos_steps_th3 = -steps_rev/4 #Current position of th3
+            steps_th3 = -pos_steps_th3
+        if(not ls_Z_2):
+            girar_Z_ccw(vel_lento,1)
+        else:
+            flag_Z = 1
+            pos_steps_Z = -steps_rev/4 #Current position of Z
+            steps_Z = -pos_steps_Z
+        
+        if(flag_th1 and flag_th2 and flag_th3 and flag_Z):
+            break
+    
+    girar_th1_cw(vel_lento, steps_th1)
+    girar_th2_cw(vel_lento, steps_th2)
+    girar_th3_cw(vel_lento, steps_th3)
+    girar_Z_cw(vel_lento, steps_Z)
 
 def pausa():
     print("Pausa")
@@ -290,13 +353,41 @@ def pausa():
 def paro_emergencia():
     print("PARO DE EMERGENCIA ACCIONADO")
 
-def posiciones_actuales():
-    print(":")
+#Funciones para giro en sentido horario y antihorario
 
-def velocidad(th1_act, th2_act, th3_act):
-    print("xd")
+def girar_th1_cw(velocidad,steps):
+    
+    print("lógica de giro pendiente")
+def girar_th1_ccw(velocidad,steps):
+    vel = velocidad
+    print("lógica de giro pendiente")
 
-# --------- Interfaz gráfica ---------
+def girar_th2_cw(velocidad,steps):
+
+    print("lógica de giro pendiente")
+def girar_th2_ccw(velocidad,steps):
+    
+    print("lógica de giro pendiente")
+
+def girar_th3_cw(velocidad,steps):
+    
+    print("lógica de giro pendiente")
+def girar_th3_ccw(velocidad,steps):
+    
+    print("lógica de giro pendiente")
+
+def girar_Z_cw(velocidad, steps):
+    print("Logica de giro pendiente")
+def girar_Z_ccw(velocidad, steps):
+    print("Logica de giro pendiente")
+
+#def desplazamiento(th1_act, th2_act, th3_act, th1_mov, th2_mov, th3_mov):
+ #   global vel_th1, vel_th2, vel_th3, steps_th1, steps_th2, steps_th3
+  #  steps_th1 = np.ceil((th1_mov-th1_act)/degrees_step)
+   # print(steps_th1)
+
+
+# -------------------------------- UI --------------------------------
 ventana = tk.Tk()
 ventana.title("Robot SCARA - Cinemática Directa")
 ventana.resizable(False, False)
@@ -313,11 +404,11 @@ style.configure('EButton.TButton', font=bigfont, background="#c62626", foregroun
 style.map('TButton', background=[('active', '#176fa2')])
 style.map('EButton.TButton', background=[('active', "#a11f1f")])
 
-# Título
+# TITLE
 label_titulo = ttk.Label(ventana, text="Robot SCARA", font=titlefont, foreground="#075985")
 label_titulo.grid(row=0, column=1, columnspan=1, pady=(12,10))
 
-# FRAME IZQUIERDO
+# LEFT FRAME
 frame_izq = ttk.Frame(ventana, padding=10, style='TFrame')
 frame_izq.grid(row=1, column=0, sticky="n")
 frame_izq.grid_rowconfigure(1, minsize=50) #Pequeño espacio al inicio 
@@ -346,7 +437,7 @@ ttk.Label(frame_izq, text="Posición en Y").grid(column=0, row=8, sticky="w", pa
 entry_y = ttk.Entry(frame_izq, width=12, font=bigfont)
 entry_y.grid(column=1, row=8, pady=2)
 
-# SELECCIÓN DEL MODO DE INGRESO DE DATOS
+# MODES FOR DATA ENTRY
 modo_cinematica = tk.StringVar(value="directa")
 rb_directa = ttk.Radiobutton(frame_izq, text="Cinemática directa", variable=modo_cinematica, value="directa", command=cambiar_modo_cinematica)
 rb_inversa = ttk.Radiobutton(frame_izq, text="Cinemática inversa", variable=modo_cinematica, value="inversa", command=cambiar_modo_cinematica)
@@ -370,7 +461,7 @@ boton_borrar.grid(column=1, row=13, columnspan=2, pady=8)
 boton_borrar_todo = ttk.Button(frame_izq, text="Borrar todo", command=borrar_todo)
 boton_borrar_todo.grid(column=0, row=14, columnspan=2, pady=8)
 
-#ACTIVAR/DESACTIVAR ELECTROIMÁN
+#ENABLE/DISABLE ELECTROMAGNET
 modo_electroiman = tk.StringVar(value="desactivado")
 rb_activado = ttk.Radiobutton(frame_izq, text="Electroimán activado", variable=modo_electroiman, value="activado", command=cambiar_modo_electroiman)
 rb_desactivado = ttk.Radiobutton(frame_izq, text="Electroimán desactivado", variable=modo_electroiman, value="desactivado", command=cambiar_modo_electroiman)
@@ -393,16 +484,7 @@ frame_izq.grid_rowconfigure(19, minsize=100)
 boton_paro = ttk.Button(frame_izq, text="PARO", style='EButton.TButton',command=paro_emergencia)
 boton_paro.grid(column=0, row=20, pady=8)
 
-# FRAME DERECHO: Historial
-frame_der = ttk.Frame(ventana, padding=10, style='TFrame')
-frame_der.grid(row=1, column=2, sticky="n")
-
-# --- Historial (Listbox)
-ttk.Label(frame_der, text="Historial de acciones:").grid(column=3, row=1, columnspan=2, pady=(10,0))
-listbox_historial = tk.Listbox(frame_der, width=54, height=38, font=("Consolas", 11), bg="#ffffff", bd=0, highlightthickness=0, fg="#176fa2")
-listbox_historial.grid(column=3, row=2, columnspan=2, pady=(0,10))
-
-# FRAME MEDIO: Gráficas
+# CENTRAL FRAME: PLOTS
 frame_med = ttk.Frame(ventana, padding=10, style='TFrame')
 frame_med.grid(row=1, column=1, sticky="n")
 
@@ -415,6 +497,17 @@ fig2, ax2 = plt.subplots(figsize=(4, 4))
 fig2.patch.set_facecolor('#DCDAD5')
 canvas2 = FigureCanvasTkAgg(fig2, master=frame_med)
 canvas2.get_tk_widget().grid(row=1, column=0, padx=5, pady=5)
+
+# RIGHT FRAME: Historial
+frame_der = ttk.Frame(ventana, padding=10, style='TFrame')
+frame_der.grid(row=1, column=2, sticky="n")
+
+# --- Historial (Listbox)
+ttk.Label(frame_der, text="Historial de acciones:").grid(column=3, row=1, columnspan=2, pady=(10,0))
+listbox_historial = tk.Listbox(frame_der, width=54, height=38, font=("Consolas", 11), bg="#ffffff", bd=0, highlightthickness=0, fg="#176fa2")
+listbox_historial.grid(column=3, row=2, columnspan=2, pady=(0,10))
+
+
 
 # Inicializa la interfaz en un estado predeterminado
 actualizar_historial()
