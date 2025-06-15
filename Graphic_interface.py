@@ -44,6 +44,30 @@ accion = 0 #Counter for number of actions saved in the register
 
 
 #----------------------------------- Functions of the program -----------------------------------
+def graficar_datos(x_vals, y_vals):
+    ax1.clear()
+    semicircle_outer = Wedge(center=(0, 0), r=rmax, theta1=-90, theta2=90, color="#a2d7ff", alpha=0.5, zorder=0)
+    semicircle_inner = Wedge(center=(0, 0), r=rmin, theta1=-90, theta2=90, color='white', zorder=1)
+    ax1.add_artist(semicircle_inner)
+    ax1.add_artist(semicircle_outer)    
+    ax1.plot(x_vals, y_vals, 'o-', linewidth=4, color="#2683c6")
+    ax1.set_xlim(-70, 70)
+    ax1.set_ylim(-70, 70)
+    ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
+    ax1.set_aspect('equal')
+    ax1.grid()
+    canvas1.draw()
+
+    ax2.clear()
+    ax2.set_xlim(0, 4)
+    ax2.set_ylim(0, 80)
+    ax2.set_title("Brazo SCARA - traslacional", fontsize=13, color="#075985")
+    ax2.set_aspect('auto')
+    ax2.add_patch(plt.Rectangle((1.5, 0), 1, 70, edgecolor='#222', facecolor='#e0e7ef'))
+    ax2.add_patch(plt.Rectangle((1.5, pos_Z), 1, 1, edgecolor='#222', facecolor='#2683c6'))
+    ax2.text(2, pos_Z + 1.2, f"{pos_Z:.1f} cm", ha='center', fontsize=12, color='#075985')
+    canvas2.draw()
+
 def cambiar_modo_cinematica():
     if modo_cinematica.get() == "directa":
         entry_theta1.config(state='normal')
@@ -143,28 +167,7 @@ def entrada_cinematica_directa():
         label_resultado.config(text="Entrada inválida")
         return
 
-    ax1.clear()
-    semicircle_outer = Wedge(center=(0, 0), r=rmax, theta1=-90, theta2=90, color="#a2d7ff", alpha=0.5, zorder=0)
-    semicircle_inner = Wedge(center=(0, 0), r=rmin, theta1=-90, theta2=90, color='white', zorder=1)    
-    ax1.add_artist(semicircle_inner)
-    ax1.add_artist(semicircle_outer)
-    ax1.plot(x_vals, y_vals, 'o-', linewidth=4, color="#2683c6")
-    ax1.set_xlim(-70, 70)
-    ax1.set_ylim(-70, 70)
-    ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
-    ax1.set_aspect('equal')
-    ax1.grid()
-    canvas1.draw()
-
-    ax2.clear()
-    ax2.set_xlim(0, 4)
-    ax2.set_ylim(0, 80)
-    ax2.set_title("Brazo SCARA - traslacional", fontsize=13, color="#075985")
-    ax2.set_aspect('auto')
-    ax2.add_patch(plt.Rectangle((1.5, 0), 1, 70, edgecolor='#222', facecolor='#e0e7ef'))
-    ax2.add_patch(plt.Rectangle((1.5, pos_Z), 1, 1, edgecolor='#222', facecolor='#2683c6'))
-    ax2.text(2, pos_Z + 1.2, f"{pos_Z:.1f} cm", ha='center', fontsize=12, color='#075985')
-    canvas2.draw()
+    graficar_datos(x_vals,y_vals)
         
     label_resultado.config(text=f"Posición X: {x_vals[-1]:.2f} | Y: {y_vals[-1]:.2f} | Z:{pos_Z:.2f}")
 
@@ -231,28 +234,7 @@ def entrada_cinematica_inversa():
     puntos = cinematica_directa(t1_deg, t2_deg, t3_deg)
     x_vals, y_vals = zip(*puntos)
 
-    ax1.clear()
-    semicircle_outer = Wedge(center=(0, 0), r=rmax, theta1=-90, theta2=90, color="#a2d7ff", alpha=0.5, zorder=0)
-    semicircle_inner = Wedge(center=(0, 0), r=rmin, theta1=-90, theta2=90, color='white', zorder=1)
-    ax1.add_artist(semicircle_inner)
-    ax1.add_artist(semicircle_outer)    
-    ax1.plot(x_vals, y_vals, 'o-', linewidth=4, color="#2683c6")
-    ax1.set_xlim(-70, 70)
-    ax1.set_ylim(-70, 70)
-    ax1.set_title("Brazo SCARA - rotacional", fontsize=13, color="#075985")
-    ax1.set_aspect('equal')
-    ax1.grid()
-    canvas1.draw()
-
-    ax2.clear()
-    ax2.set_xlim(0, 4)
-    ax2.set_ylim(0, 80)
-    ax2.set_title("Brazo SCARA - traslacional", fontsize=13, color="#075985")
-    ax2.set_aspect('auto')
-    ax2.add_patch(plt.Rectangle((1.5, 0), 1, 70, edgecolor='#222', facecolor='#e0e7ef'))
-    ax2.add_patch(plt.Rectangle((1.5, pos_Z), 1, 1, edgecolor='#222', facecolor='#2683c6'))
-    ax2.text(2, pos_Z + 1.2, f"{pos_Z:.1f} cm", ha='center', fontsize=12, color='#075985')
-    canvas2.draw()
+    graficar_datos(x_vals,y_vals)
 
     label_resultado.config(text=f"Ángulos: θ1={t1_deg:.2f}°, θ2={t2_deg:.2f}°, θ3={t3_deg:.2f}°")
 
@@ -315,37 +297,33 @@ def homing():
     flag_Z = 0
     while(flag_home):
         if(not ls_th1_2):
-            girar_th1_ccw(vel_lento,1)
+            girar_th1_ccw()
         else:
             flag_th1 = 1
             pos_steps_th1 = -steps_rev/4 #Current position of th1
-            steps_th1 = -pos_steps_th1
+            steps_th1 = -pos_steps_th1 #Set the amount of steps to take as half of the full range
         if(not ls_th2_2):
-            girar_th2_ccw(vel_lento,1)
+            girar_th2_ccw()
         else:
             flag_th2 = 1
             pos_steps_th2 = -steps_rev/4 #Current position of th2
-            steps_th2 = -pos_steps_th2
+            steps_th2 = -pos_steps_th2 #Set the amount of steps to take as half of the full range
         if(not ls_th3_2):
-            girar_th3_ccw(vel_lento,1)
+            girar_th3_ccw()
         else:
             flag_th3 = 1
             pos_steps_th3 = -steps_rev/4 #Current position of th3
-            steps_th3 = -pos_steps_th3
+            steps_th3 = -pos_steps_th3 #Set the amount of steps to take as half of the full range
         if(not ls_Z_2):
-            girar_Z_ccw(vel_lento,1)
+            girar_Z_ccw()
         else:
             flag_Z = 1
             pos_steps_Z = -steps_rev/4 #Current position of Z
-            steps_Z = -pos_steps_Z
+            steps_Z = -pos_steps_Z #Set the amount of steps to take as half of the full range
         
         if(flag_th1 and flag_th2 and flag_th3 and flag_Z):
             break
-    
-    girar_th1_cw(vel_lento, steps_th1)
-    girar_th2_cw(vel_lento, steps_th2)
-    girar_th3_cw(vel_lento, steps_th3)
-    girar_Z_cw(vel_lento, steps_Z)
+    rotation(vel_lento, vel_lento, vel_lento, vel_lento, steps_th1, steps_th2, steps_th3, steps_Z)
 
 def pausa():
     print("Pausa")
@@ -355,30 +333,85 @@ def paro_emergencia():
 
 #Funciones para giro en sentido horario y antihorario
 
-def girar_th1_cw(velocidad,steps):
+def rotation(vel_th1, vel_th2, vel_th3, vel_Z, steps_th1, steps_th2, steps_th3, steps_Z):
+    
+    flag_rotation = 1
+    flag_th1 = 0
+    flag_th2 = 0
+    flag_th3 = 0
+    flag_Z = 0
+
+    while(flag_rotation):
+
+        if(flag_th1 and flag_th2 and flag_th3 and flag_Z):
+            flag_rotation = 0
+            break
+
+        if(steps_th1 != 0):
+            if(steps_th1 > 0):
+                girar_th1_cw()
+                steps_th1 = steps_th1-1
+            else:
+                girar_th1_ccw()
+                steps_th1 = steps_th1+1
+        else:
+            flag_th1 = 1
+
+        if(steps_th2 != 0):
+            if(steps_th2 > 0):
+                girar_th2_cw()
+                steps_th2 = steps_th2-1
+            else:
+                girar_th2_ccw()
+                steps_th2 = steps_th2+1
+        else:
+            flag_th2 = 1
+
+        if(steps_th3 != 0):
+            if(steps_th3 > 0):
+                girar_th3_cw()
+                steps_th3 = steps_th3-1
+            else:
+                girar_th3_ccw()
+                steps_th3 = steps_th3+1
+        else:
+            flag_th3 = 1
+
+        if(steps_Z != 0):
+            if(steps_Z > 0):
+                girar_Z_cw()
+                steps_Z = steps_Z-1
+            else:
+                girar_Z_ccw()
+                steps_Z = steps_Z+1
+        else:
+            flag_Z = 1
+    
+
+def girar_th1_cw():
     
     print("lógica de giro pendiente")
-def girar_th1_ccw(velocidad,steps):
-    vel = velocidad
-    print("lógica de giro pendiente")
-
-def girar_th2_cw(velocidad,steps):
-
-    print("lógica de giro pendiente")
-def girar_th2_ccw(velocidad,steps):
+def girar_th1_ccw():
     
     print("lógica de giro pendiente")
 
-def girar_th3_cw(velocidad,steps):
-    
+def girar_th2_cw():
+
     print("lógica de giro pendiente")
-def girar_th3_ccw(velocidad,steps):
+def girar_th2_ccw():
     
     print("lógica de giro pendiente")
 
-def girar_Z_cw(velocidad, steps):
+def girar_th3_cw():
+    
+    print("lógica de giro pendiente")
+def girar_th3_ccw():
+    
+    print("lógica de giro pendiente")
+
+def girar_Z_cw():
     print("Logica de giro pendiente")
-def girar_Z_ccw(velocidad, steps):
+def girar_Z_ccw():
     print("Logica de giro pendiente")
 
 #def desplazamiento(th1_act, th2_act, th3_act, th1_mov, th2_mov, th3_mov):
